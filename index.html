@@ -5,62 +5,71 @@
   <title>Dictado UCI</title>
 </head>
 <body style="font-family: Arial; font-size: 16px;">
-  <h2>🎤 Dictado UCI</h2>
-  <button onclick="startDictation()">Empezar dictado</button>
-  <p id="output">Esperando dictado...</p>
+  <h2>🎤 Dictado UCI (decir "copia" para empezar y "guarda" para enviar)</h2>
+  <p id="estado">Esperando comando...</p>
+  <p id="output"></p>
 
   <script>
-    function startDictation() {
-      if (!('webkitSpeechRecognition' in window)) {
-        alert('Este navegador no soporta reconocimiento por voz.');
-        return;
-      }
-
+    if (!('webkitSpeechRecognition' in window)) {
+      alert('Este navegador no soporta reconocimiento por voz.');
+    } else {
       const recognition = new webkitSpeechRecognition();
       recognition.lang = "es-ES";
-      recognition.continuous = false;
+      recognition.continuous = true;
       recognition.interimResults = false;
 
+      let capturando = false;
+      let textoCapturado = "";
+
       recognition.onresult = function(event) {
-        const resultado = event.results[0][0].transcript.toLowerCase();
+        const resultado = event.results[event.results.length - 1][0].transcript.toLowerCase();
         document.getElementById("output").innerText = "Reconocido: " + resultado;
 
-        // Buscar presión
-        const presion = resultado.match(/presión\s*(\d+)/);
-
-        // Buscar temperatura con más tolerancia
-        const temperaturaMatch = resultado.match(/temperatura\s*([\d,\.]+)/)
-                               || resultado.match(/(\d{2}[,\.]\d)/);
-        const temperatura = temperaturaMatch ? temperaturaMatch[1].replace(",", ".") : "";
-
-        // Buscar saturación
-        const saturacion = resultado.match(/saturación\s*(\d+)/);
-
-        const datos = {
-          presion: presion ? presion[1] : "",
-          temperatura: temperatura,
-          saturacion: saturacion ? saturacion[1] : ""
-        };
-
-        if (!datos.presion && !datos.temperatura && !datos.saturacion) {
-          alert("No se detectaron datos válidos.");
+        if (resultado.includes("copia")) {
+          capturando = true;
+          textoCapturado = "";
+          document.getElementById("estado").innerText = "🎤 Grabando datos...";
           return;
         }
 
-        fetch('https://script.google.com/macros/s/AKfycbxbaIQhQDbfBHKaVrCmaeTkJE190dn9hmiueJlO2XQXXpp76uCwefky6S9RG_E_ek0NCA/exec', {
-          method: 'POST',
-          body: JSON.stringify(datos)
-        })
-        .then(response => response.text())
-        .then(data => {
-          alert("✅ Datos enviados:\n" +
-                `Presión: ${datos.presion}\n` +
-                `Temperatura: ${datos.temperatura}\n` +
-                `Saturación: ${datos.saturacion}`);
-        })
-        .catch(error => {
-          alert("Error al enviar: " + error);
-        });
+        if (resultado.includes("guarda")) {
+          capturando = false;
+          document.getElementById("estado").innerText = "📤 Enviando datos...";
+
+          const presion = textoCapturado.match(/presión\s*(\d+)/);
+          const temperaturaMatch = textoCapturado.match(/temperatura\s*([\d,\.]+)/)
+                                     || textoCapturado.match(/(\d{2}[,\.]\d)/);
+          const temperatura = temperaturaMatch ? temperaturaMatch[1].replace(",", ".") : "";
+          const saturacion = textoCapturado.match(/saturación\s*(\d+)/);
+
+          const datos = {
+            presion: presion ? presion[1] : "",
+            temperatura: temperatura,
+            saturacion: saturacion ? saturacion[1] : ""
+          };
+
+          fetch('https://script.google.com/macros/s/AKfycbxbaIQhQDbfBHKaVrCmaeTkJE190dn9hmiueJlO2XQXXpp76uCwefky6S9RG_E_ek0NCA/exec', {
+            method: 'POST',
+            body: JSON.stringify(datos)
+          })
+          .then(response => response.text())
+          .then(data => {
+            alert("✅ Datos enviados:\n" +
+              `Presión: ${datos.presion}\n` +
+              `Temperatura: ${datos.temperatura}\n` +
+              `Saturación: ${datos.saturacion}`);
+            document.getElementById("estado").innerText = "✅ Datos guardados.";
+          })
+          .catch(error => {
+            alert("Error al enviar: " + error);
+          });
+
+          return;
+        }
+
+        if (capturando) {
+          textoCapturado += " " + resultado;
+        }
       };
 
       recognition.onerror = function(event) {
@@ -72,5 +81,6 @@
   </script>
 </body>
 </html>
+
 
 
