@@ -25,13 +25,20 @@
         const resultado = event.results[0][0].transcript.toLowerCase();
         document.getElementById("output").innerText = "Reconocido: " + resultado;
 
+        // Buscar presión
         const presion = resultado.match(/presión\s*(\d+)/);
-        const temperatura = resultado.match(/temperatura\s*([\d,\.]+)/);
+
+        // Buscar temperatura con más tolerancia
+        const temperaturaMatch = resultado.match(/temperatura\s*([\d,\.]+)/)
+                               || resultado.match(/(\d{2}[,\.]\d)/);
+        const temperatura = temperaturaMatch ? temperaturaMatch[1].replace(",", ".") : "";
+
+        // Buscar saturación
         const saturacion = resultado.match(/saturación\s*(\d+)/);
 
         const datos = {
           presion: presion ? presion[1] : "",
-          temperatura: temperatura ? temperatura[1].replace(",", ".") : "",
+          temperatura: temperatura,
           saturacion: saturacion ? saturacion[1] : ""
         };
 
@@ -46,7 +53,7 @@
         })
         .then(response => response.text())
         .then(data => {
-          alert("Datos enviados correctamente:\n" +
+          alert("✅ Datos enviados:\n" +
                 `Presión: ${datos.presion}\n` +
                 `Temperatura: ${datos.temperatura}\n` +
                 `Saturación: ${datos.saturacion}`);
@@ -65,4 +72,5 @@
   </script>
 </body>
 </html>
+
 
