@@ -3,79 +3,85 @@
 <head>
   <meta charset="UTF-8">
   <title>Dictado UCI</title>
-  <style>
-    body {
-      font-family: Arial;
-      text-align: center;
-      padding-top: 50px;
-    }
-    button {
-      font-size: 24px;
-      padding: 20px 40px;
-      border-radius: 12px;
-    }
-  </style>
 </head>
 <body>
-
   <h1>Dictado UCI</h1>
-  <button id="micBtn">Mantener pulsado para dictar</button>
-  <p id="status"></p>
+  <button id="recordButton" style="font-size: 2em; padding: 20px;">🎤 Mantener para grabar</button>
 
   <script>
-    const boton = document.getElementById('micBtn');
-    const status = document.getElementById('status');
+    const recordButton = document.getElementById("recordButton");
 
-    const reconocimiento = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
-    reconocimiento.lang = 'es-ES';
-    reconocimiento.interimResults = false;
-    reconocimiento.maxAlternatives = 1;
+    let recognition;
+    let transcriptFinal = "";
 
-    let resultadoTexto = "";
+    if ('webkitSpeechRecognition' in window) {
+      recognition = new webkitSpeechRecognition();
+      recognition.lang = 'es-ES';
+      recognition.continuous = false;
+      recognition.interimResults = false;
 
-    reconocimiento.onresult = (event) => {
-      resultadoTexto = event.results[0][0].transcript.toLowerCase();
-      status.innerText = "Detectado: " + resultadoTexto;
-
-      // Extraer datos
-      const presion = resultadoTexto.match(/presi[oó]n\s+(\d+)/);
-      const temperatura = resultadoTexto.match(/temperatura\s+(\d+([.,]\d+)?)/);
-      const saturacion = resultadoTexto.match(/saturaci[oó]n\s+(\d+)/);
-
-      const datos = {
-        presion: presion ? presion[1] : '',
-        temperatura: temperatura ? temperatura[1].replace(",", ".") : '',
-        saturacion: saturacion ? saturacion[1] : ''
+      recognition.onresult = function(event) {
+        transcriptFinal = event.results[0][0].transcript;
+        procesarDatos(transcriptFinal);
       };
 
-      // Enviar a Google Sheets
-      fetch('https://script.google.com/macros/s/AKfycbxbaIQhQDbfBHKaVrCmaeTkJE190dn9hmiueJlO2XQXXpp76uCwefky6S9RG_E_ek0NCA/exec', {
-        method: 'POST',
-        body: JSON.stringify(datos),
+      recognition.onerror = function(event) {
+        alert('Error en el reconocimiento de voz: ' + event.error);
+      };
+
+      recognition.onend = function() {
+        console.log("Grabación finalizada");
+      };
+    } else {
+      alert("Este navegador no admite reconocimiento de voz.");
+    }
+
+    recordButton.addEventListener("mousedown", () => {
+      transcriptFinal = "";
+      if (recognition) recognition.start();
+    });
+
+    recordButton.addEventListener("mouseup", () => {
+      if (recognition) recognition.stop();
+    });
+
+    function procesarDatos(texto) {
+      // Buscar los datos numéricos con expresiones regulares
+      const presion = texto.match(/presi[oó]n (\d+)/i)?.[1] || "";
+      const temperatura = texto.match(/temperatura (\d+(?:[,.]\d+)?)/i)?.[1].replace(",", ".") || "";
+      const saturacion = texto.match(/saturaci[oó]n (\d+)/i)?.[1] || "";
+
+      if (!presion && !temperatura && !saturacion) {
+        alert("No se detectaron datos válidos.");
+        return;
+      }
+
+      const datos = {
+        presion,
+        temperatura,
+        saturacion
+      };
+
+      fetch("https://script.google.com/macros/s/AKfycbySLfZTDe0sz0RSDdZQcwnmxsAy1eZfJO7NaaKbwzQah0a2XZbfGa_-nehFNtM7zKwckg/exec", {
+        method: "POST",
+        mode: "no-cors",
         headers: {
-          'Content-Type': 'application/json'
-        }
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(datos)
       })
-      .then(response => status.innerText += "\nEnviado correctamente.")
-      .catch(error => status.innerText += "\nError al enviar.");
-    };
-
-    reconocimiento.onerror = (event) => {
-      status.innerText = "Error en el reconocimiento: " + event.error;
-    };
-
-    boton.addEventListener("mousedown", () => {
-      status.innerText = "Escuchando...";
-      reconocimiento.start();
-    });
-
-    boton.addEventListener("mouseup", () => {
-      reconocimiento.stop();
-    });
+      .then(() => {
+        alert("Datos enviados correctamente:\n" +
+              `Presión: ${presion}\nTemperatura: ${temperatura}\nSaturación: ${saturacion}`);
+      })
+      .catch(err => {
+        alert("Error al enviar los datos: " + err);
+      });
+    }
   </script>
-
 </body>
 </html>
+
 
 
 
