@@ -3,84 +3,80 @@
 <head>
   <meta charset="UTF-8">
   <title>Dictado UCI</title>
+  <style>
+    body {
+      font-family: Arial;
+      text-align: center;
+      padding-top: 50px;
+    }
+    button {
+      font-size: 24px;
+      padding: 20px 40px;
+      border-radius: 12px;
+    }
+  </style>
 </head>
-<body style="font-family: Arial; font-size: 16px;">
-  <h2>🎤 Dictado UCI (decir "copia" para empezar y "guarda" para enviar)</h2>
-  <p id="estado">Esperando comando...</p>
-  <p id="output"></p>
+<body>
+
+  <h1>Dictado UCI</h1>
+  <button id="micBtn">Mantener pulsado para dictar</button>
+  <p id="status"></p>
 
   <script>
-    if (!('webkitSpeechRecognition' in window)) {
-      alert('Este navegador no soporta reconocimiento por voz.');
-    } else {
-      const recognition = new webkitSpeechRecognition();
-      recognition.lang = "es-ES";
-      recognition.continuous = true;
-      recognition.interimResults = false;
+    const boton = document.getElementById('micBtn');
+    const status = document.getElementById('status');
 
-      let capturando = false;
-      let textoCapturado = "";
+    const reconocimiento = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
+    reconocimiento.lang = 'es-ES';
+    reconocimiento.interimResults = false;
+    reconocimiento.maxAlternatives = 1;
 
-      recognition.onresult = function(event) {
-        const resultado = event.results[event.results.length - 1][0].transcript.toLowerCase();
-        document.getElementById("output").innerText = "Reconocido: " + resultado;
+    let resultadoTexto = "";
 
-        if (resultado.includes("copia")) {
-          capturando = true;
-          textoCapturado = "";
-          document.getElementById("estado").innerText = "🎤 Grabando datos...";
-          return;
-        }
+    reconocimiento.onresult = (event) => {
+      resultadoTexto = event.results[0][0].transcript.toLowerCase();
+      status.innerText = "Detectado: " + resultadoTexto;
 
-        if (resultado.includes("guarda")) {
-          capturando = false;
-          document.getElementById("estado").innerText = "📤 Enviando datos...";
+      // Extraer datos
+      const presion = resultadoTexto.match(/presi[oó]n\s+(\d+)/);
+      const temperatura = resultadoTexto.match(/temperatura\s+(\d+([.,]\d+)?)/);
+      const saturacion = resultadoTexto.match(/saturaci[oó]n\s+(\d+)/);
 
-          const presion = textoCapturado.match(/presión\s*(\d+)/);
-          const temperaturaMatch = textoCapturado.match(/temperatura\s*([\d,\.]+)/)
-                                     || textoCapturado.match(/(\d{2}[,\.]\d)/);
-          const temperatura = temperaturaMatch ? temperaturaMatch[1].replace(",", ".") : "";
-          const saturacion = textoCapturado.match(/saturación\s*(\d+)/);
-
-          const datos = {
-            presion: presion ? presion[1] : "",
-            temperatura: temperatura,
-            saturacion: saturacion ? saturacion[1] : ""
-          };
-
-          fetch('https://script.google.com/macros/s/AKfycbxbaIQhQDbfBHKaVrCmaeTkJE190dn9hmiueJlO2XQXXpp76uCwefky6S9RG_E_ek0NCA/exec', {
-            method: 'POST',
-            body: JSON.stringify(datos)
-          })
-          .then(response => response.text())
-          .then(data => {
-            alert("✅ Datos enviados:\n" +
-              `Presión: ${datos.presion}\n` +
-              `Temperatura: ${datos.temperatura}\n` +
-              `Saturación: ${datos.saturacion}`);
-            document.getElementById("estado").innerText = "✅ Datos guardados.";
-          })
-          .catch(error => {
-            alert("Error al enviar: " + error);
-          });
-
-          return;
-        }
-
-        if (capturando) {
-          textoCapturado += " " + resultado;
-        }
+      const datos = {
+        presion: presion ? presion[1] : '',
+        temperatura: temperatura ? temperatura[1].replace(",", ".") : '',
+        saturacion: saturacion ? saturacion[1] : ''
       };
 
-      recognition.onerror = function(event) {
-        alert("Error: " + event.error);
-      };
+      // Enviar a Google Sheets
+      fetch('https://script.google.com/macros/s/AKfycbxbaIQhQDbfBHKaVrCmaeTkJE190dn9hmiueJlO2XQXXpp76uCwefky6S9RG_E_ek0NCA/exec', {
+        method: 'POST',
+        body: JSON.stringify(datos),
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      })
+      .then(response => status.innerText += "\nEnviado correctamente.")
+      .catch(error => status.innerText += "\nError al enviar.");
+    };
 
-      recognition.start();
-    }
+    reconocimiento.onerror = (event) => {
+      status.innerText = "Error en el reconocimiento: " + event.error;
+    };
+
+    boton.addEventListener("mousedown", () => {
+      status.innerText = "Escuchando...";
+      reconocimiento.start();
+    });
+
+    boton.addEventListener("mouseup", () => {
+      reconocimiento.stop();
+    });
   </script>
+
 </body>
 </html>
+
 
 
 
