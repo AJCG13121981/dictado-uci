@@ -6,13 +6,14 @@
 </head>
 <body>
   <h1>Dictado UCI</h1>
-  <button id="recordButton" style="font-size: 2em; padding: 20px;">🎤 Mantener para grabar</button>
+  <button id="recordButton" style="font-size: 2em; padding: 20px;">🎤 Empezar dictado</button>
 
   <script>
     const recordButton = document.getElementById("recordButton");
 
     let recognition;
     let transcriptFinal = "";
+    let grabando = false;
 
     if ('webkitSpeechRecognition' in window) {
       recognition = new webkitSpeechRecognition();
@@ -30,23 +31,25 @@
       };
 
       recognition.onend = function() {
-        console.log("Grabación finalizada");
+        grabando = false;
+        recordButton.textContent = "🎤 Empezar dictado";
       };
     } else {
       alert("Este navegador no admite reconocimiento de voz.");
     }
 
-    recordButton.addEventListener("mousedown", () => {
-      transcriptFinal = "";
-      if (recognition) recognition.start();
-    });
-
-    recordButton.addEventListener("mouseup", () => {
-      if (recognition) recognition.stop();
+    recordButton.addEventListener("click", () => {
+      if (grabando) {
+        recognition.stop();
+      } else {
+        transcriptFinal = "";
+        recognition.start();
+        grabando = true;
+        recordButton.textContent = "⏹ Detener dictado";
+      }
     });
 
     function procesarDatos(texto) {
-      // Buscar los datos numéricos con expresiones regulares
       const presion = texto.match(/presi[oó]n (\d+)/i)?.[1] || "";
       const temperatura = texto.match(/temperatura (\d+(?:[,.]\d+)?)/i)?.[1].replace(",", ".") || "";
       const saturacion = texto.match(/saturaci[oó]n (\d+)/i)?.[1] || "";
@@ -64,23 +67,23 @@
 
       fetch("https://script.google.com/macros/s/AKfycbySLfZTDe0sz0RSDdZQcwnmxsAy1eZfJO7NaaKbwzQah0a2XZbfGa_-nehFNtM7zKwckg/exec", {
         method: "POST",
-        mode: "no-cors",
         headers: {
           "Content-Type": "application/json"
         },
         body: JSON.stringify(datos)
       })
-      .then(() => {
-        alert("Datos enviados correctamente:\n" +
-              `Presión: ${presion}\nTemperatura: ${temperatura}\nSaturación: ${saturacion}`);
+      .then(response => response.text())
+      .then(text => {
+        alert("Enviado correctamente:\n" + text);
       })
       .catch(err => {
-        alert("Error al enviar los datos: " + err);
+        alert("Error real al enviar los datos: " + err);
       });
     }
   </script>
 </body>
 </html>
+
 
 
 
